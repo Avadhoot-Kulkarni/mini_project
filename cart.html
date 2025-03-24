@@ -1,0 +1,79 @@
+<!-- cart.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cart - PharmaShop</title>
+    <style>
+        .cart-item {
+            background: white;
+            padding: 15px;
+            margin: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .total {
+            font-size: 1.2em;
+            padding: 20px;
+        }
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <button onclick="window.location.href='medicines.html'">Back to Medicines</button>
+        <button onclick="window.location.href='billing.html'">Proceed to Billing</button>
+    </div>
+    <div id="cartItems"></div>
+    <div class="total" id="totalAmount"></div>
+
+    <script>
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        function displayCart() {
+            const container = document.getElementById('cartItems');
+            container.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                const div = document.createElement('div');
+                div.className = 'cart-item';
+                div.innerHTML = `
+                    <div>
+                        <h3>${item.name}</h3>
+                        <p>Price: ₹${item.price} x ${item.quantity} = ₹${itemTotal}</p>
+                        <p>Manufacturer: ${item.manufacturer_name}</p>
+                    </div>
+                    <button class="remove-btn" onclick="removeFromCart(${item.id})">Remove</button>
+                `;
+                container.appendChild(div);
+            });
+            document.getElementById('totalAmount').textContent = `Total Amount: ₹${total.toFixed(2)}`;
+        }
+
+        function removeFromCart(id) {
+            const itemIndex = cart.findIndex(item => item.id === id);
+            if (itemIndex !== -1) {
+                cart[itemIndex].quantity--;
+                if (cart[itemIndex].quantity === 0) {
+                    cart.splice(itemIndex, 1);
+                }
+                localStorage.setItem('cart', JSON.stringify(cart));
+                displayCart();
+            }
+        }
+
+        displayCart();
+    </script>
+</body>
+</html>

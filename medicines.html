@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Medicines - PharmaShop</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .nav {
+            background: linear-gradient(90deg, #1e88e5, #42a5f5);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .nav button {
+            background: #fff;
+            color: #1e88e5;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .nav button:hover {
+            background: #1e88e5;
+            color: #fff;
+        }
+        .search-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-bar input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            width: 300px;
+            transition: border-color 0.3s ease;
+        }
+        .search-bar input:focus {
+            outline: none;
+            border-color: #1e88e5;
+        }
+        .medicine-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            padding: 0 20px;
+            margin-bottom: 50px;
+        }
+        .medicine-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .medicine-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .medicine-card h3 {
+            color: #1e88e5;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .medicine-card p {
+            color: #555;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .add-to-cart {
+            background: linear-gradient(90deg, #28a745, #4caf50);
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s ease;
+        }
+        .add-to-cart:hover {
+            background: linear-gradient(90deg, #218838, #388e3c);
+        }
+        .add-to-cart:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            font-size: 18px;
+            color: #1e88e5;
+            margin: 50px;
+            display: none;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Search for medicines..." oninput="searchMedicines()">
+        </div>
+        <button onclick="window.location.href='cart.html'">View Cart</button>
+    </div>
+    <div class="medicine-grid" id="medicineList">
+        <div class="loading">Loading initial medicines...</div>
+    </div>
+    <div class="loading" id="loading">Loading more medicines...</div>
+
+    <script>
+        // Check if user is logged in
+        const loggedInUser = JSON.parse(localStorage.getItem('loggedInUser'));
+        if (!loggedInUser) {
+            alert('Please log in to access this page.');
+            window.location.href = 'index.html';
+        }
+
+        let medicines = [];
+        let filteredMedicines = [];
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const itemsPerLoad = 100;
+        let displayedCount = 0;
+        let isLoading = false;
+
+        // Fallback sample data (in case fetch fails completely)
+        const fallbackMedicines = [
+            { id: 1, name: "Augmentin 625 Duo Tablet", price: 223.42, Is_discontinued: false, manufacturer_name: "Glaxo SmithKline Pharmaceuticals Ltd", type: "allopathy", pack_size_label: "strip of 10 tablets", short_composition1: "Amoxycillin (500mg)", short_composition2: "Clavulanic Acid (125mg)", quantity: 50, composition: "Amoxycillin (500mg) + Clavulanic Acid (125mg)" },
+            { id: 2, name: "Azithral 500 Tablet", price: 132.36, Is_discontinued: false, manufacturer_name: "Alembic Pharmaceuticals Ltd", type: "allopathy", pack_size_label: "strip of 5 tablets", short_composition1: "Azithromycin (500mg)", short_composition2: "", quantity: 50, composition: "Azithromycin (500mg)" },
+            { id: 3, name: "Ascoril LS Syrup", price: 118, Is_discontinued: false, manufacturer_name: "Glenmark Pharmaceuticals Ltd", type: "allopathy", pack_size_label: "bottle of 100 ml Syrup", short_composition1: "Ambroxol (30mg/5ml)", short_composition2: "Levosalbutamol (1mg/5ml)", quantity: 50, composition: "Ambroxol (30mg/5ml) + Levosalbutamol (1mg/5ml)" },
+            { id: 4, name: "Allegra 120mg Tablet", price: 218.81, Is_discontinued: false, manufacturer_name: "Sanofi India Ltd", type: "allopathy", pack_size_label: "strip of 10 tablets", short_composition1: "Fexofenadine (120mg)", short_composition2: "", quantity: 50, composition: "Fexofenadine (120mg)" },
+            { id: 5, name: "Avil 25 Tablet", price: 10.96, Is_discontinued: false, manufacturer_name: "Sanofi India Ltd", type: "allopathy", pack_size_label: "strip of 15 tablets", short_composition1: "Pheniramine (25mg)", short_composition2: "", quantity: 50, composition: "Pheniramine (25mg)" },
+            { id: 6, name: "Allegra-M Tablet", price: 241.48, Is_discontinued: false, manufacturer_name: "Sanofi India Ltd", type: "allopathy", pack_size_label: "strip of 10 tablets", short_composition1: "Montelukast (10mg)", short_composition2: "Fexofenadine (120mg)", quantity: 50, composition: "Montelukast (10mg) + Fexofenadine (120mg)" },
+            { id: 7, name: "Amoxyclav 625 Tablet", price: 223.27, Is_discontinued: false, manufacturer_name: "Abbott", type: "allopathy", pack_size_label: "strip of 10 tablets", short_composition1: "Amoxycillin (500mg)", short_composition2: "Clavulanic Acid (125mg)", quantity: 50, composition: "Amoxycillin (500mg) + Clavulanic Acid (125mg)" },
+            { id: 8, name: "Azee 500 Tablet", price: 132.38, Is_discontinued: false, manufacturer_name: "Cipla Ltd", type: "allopathy", pack_size_label: "strip of 5 tablets", short_composition1: "Azithromycin (500mg)", short_composition2: "", quantity: 50, composition: "Azithromycin (500mg)" },
+            { id: 9, name: "Atarax 25mg Tablet", price: 85.5, Is_discontinued: false, manufacturer_name: "Dr Reddy's Laboratories Ltd", type: "allopathy", pack_size_label: "strip of 15 tablets", short_composition1: "Hydroxyzine (25mg)", short_composition2: "", quantity: 50, composition: "Hydroxyzine (25mg)" }
+        ];
+
+        function parseCSV(csv) {
+            const lines = csv.trim().split('\n');
+            const headers = lines[0].split('\t');
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split('\t');
+                const obj = {};
+                headers.forEach((header, index) => {
+                    if (header === 'price') obj[header] = parseFloat(values[index]);
+                    else if (header === 'id') obj[header] = parseInt(values[index]);
+                    else if (header === 'Is_discontinued') obj[header] = values[index] === 'TRUE';
+                    else obj[header] = values[index] || '';
+                });
+                obj.quantity = 50;
+                obj.composition = [obj.short_composition1, obj.short_composition2].filter(Boolean).join(' + ');
+                result.push(obj);
+            }
+            return result;
+        }
+
+        // Initial load with infinite scrolling
+        fetch('medicines.csv?nocache=' + new Date().getTime())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+                }
+                return response.text();
+            })
+            .then(csv => {
+                medicines = parseCSV(csv);
+                console.log(`Parsed ${medicines.length} medicines`);
+                filteredMedicines = [...medicines];
+                displayMedicines(0, itemsPerLoad);
+                checkScroll();
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                document.getElementById('medicineList').innerHTML = '<p style="text-align: center; color: #e53935;">Failed to load medicines. Using sample data.</p>';
+                medicines = [...fallbackMedicines];
+                filteredMedicines = [...fallbackMedicines];
+                displayMedicines(0, itemsPerLoad);
+                checkScroll();
+            });
+
+        function displayMedicines(startIndex, count) {
+            const container = document.getElementById('medicineList');
+            const fragment = document.createDocumentFragment();
+            filteredMedicines.slice(startIndex, startIndex + count).forEach(med => {
+                const card = document.createElement('div');
+                card.className = 'medicine-card';
+                card.innerHTML = `
+                    <h3>${med.name}</h3>
+                    <p><strong>Price:</strong> ₹${med.price.toFixed(2)}</p>
+                    <p><strong>Available:</strong> ${med.quantity}</p>
+                    <p><strong>Manufacturer:</strong> ${med.manufacturer_name || 'N/A'}</p>
+                    <p><strong>Composition:</strong> ${med.composition || 'N/A'}</p>
+                    <button class="add-to-cart" onclick="addToCart(${med.id})" ${med.quantity === 0 || med.Is_discontinued ? 'disabled' : ''}>
+                        ${med.quantity === 0 ? 'Out of Stock' : med.Is_discontinued ? 'Discontinued' : 'Add to Cart'}
+                    </button>
+                `;
+                fragment.appendChild(card);
+            });
+            container.appendChild(fragment);
+            displayedCount = startIndex + count;
+        }
+
+        function searchMedicines() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const container = document.getElementById('medicineList');
+            container.innerHTML = '';
+            displayedCount = 0;
+
+            if (searchTerm.trim() === '') {
+                filteredMedicines = [...medicines];
+            } else {
+                filteredMedicines = medicines.filter(med =>
+                    med.name.toLowerCase().includes(searchTerm) ||
+                    (med.composition && med.composition.toLowerCase().includes(searchTerm)) ||
+                    (med.manufacturer_name && med.manufacturer_name.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            if (filteredMedicines.length === 0) {
+                container.innerHTML = '<div style="text-align: center; font-size: 18px; color: #666; margin: 50px;">No medicines found matching your search.</div>';
+                return;
+            }
+
+            displayMedicines(0, itemsPerLoad);
+            checkScroll();
+        }
+
+        function loadMoreMedicines() {
+            if (isLoading || displayedCount >= filteredMedicines.length) return;
+            isLoading = true;
+            document.getElementById('loading').style.display = 'block';
+
+            setTimeout(() => {
+                displayMedicines(displayedCount, itemsPerLoad);
+                isLoading = false;
+                document.getElementById('loading').style.display = 'none';
+            }, 500);
+        }
+
+        function checkScroll() {
+            const container = document.getElementById('medicineList');
+            if (window.innerHeight + window.scrollY >= container.offsetTop + container.offsetHeight - 200) {
+                loadMoreMedicines();
+            }
+        }
+
+        function addToCart(id) {
+            const medicine = medicines.find(m => m.id === id);
+            const cartItem = cart.find(item => item.id === id);
+            if (medicine.quantity > 0 && !medicine.Is_discontinued) {
+                if (cartItem) {
+                    cartItem.quantity++;
+                } else {
+                    cart.push({ ...medicine, quantity: 1 });
+                }
+                medicine.quantity--;
+                localStorage.setItem('cart', JSON.stringify(cart));
+                const card = document.querySelector(`button[onclick="addToCart(${id})"]`).parentElement;
+                card.querySelector('p:nth-child(3)').innerHTML = `<strong>Available:</strong> ${medicine.quantity}`;
+                card.querySelector('button').disabled = medicine.quantity === 0;
+                card.querySelector('button').textContent = medicine.quantity === 0 ? 'Out of Stock' : 'Add to Cart';
+            }
+        }
+
+        window.addEventListener('scroll', checkScroll);
+        window.addEventListener('resize', checkScroll);
+    </script>
+</body>
+</html>
